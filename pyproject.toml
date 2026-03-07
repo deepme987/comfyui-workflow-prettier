@@ -1,0 +1,15 @@
+[project]
+name = "comfyui-workflow-prettier"
+description = "Auto-arrange workflow nodes with 4 layout algorithms, group-aware positioning, alignment tools, and undo"
+version = "1.0.0"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+
+[project.urls]
+Repository = "https://github.com/Comfy-Org/comfyui-workflow-prettier"
+Issues = "https://github.com/Comfy-Org/comfyui-workflow-prettier/issues"
+
+[tool.comfy]
+PublisherId = "comfyorg"
+DisplayName = "Workflow Prettier"
+Icon = ""
