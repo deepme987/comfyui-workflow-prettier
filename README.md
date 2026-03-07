@@ -2,7 +2,7 @@
 
 Auto-arrange your ComfyUI workflow nodes with a single click.
 
-<!-- TODO: Add screenshot here -->
+![Workflow Prettier Node](example.png)
 
 ## Features
 
