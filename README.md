@@ -32,7 +32,7 @@ Search for **"Workflow Prettier"** in the ComfyUI Manager and install.
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone https://github.com/Comfy-Org/comfyui-workflow-prettier.git
+git clone https://github.com/deepme987/comfyui-workflow-prettier.git
 ```
 
 Restart ComfyUI. No pip dependencies required.

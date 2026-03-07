@@ -6,8 +6,8 @@ license = { file = "LICENSE" }
 requires-python = ">=3.10"
 
 [project.urls]
-Repository = "https://github.com/Comfy-Org/comfyui-workflow-prettier"
-Issues = "https://github.com/Comfy-Org/comfyui-workflow-prettier/issues"
+Repository = "https://github.com/deepme987/comfyui-workflow-prettier"
+Issues = "https://github.com/deepme987/comfyui-workflow-prettier/issues"
 
 [tool.comfy]
 PublisherId = "deepme987"
