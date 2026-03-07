@@ -10,6 +10,6 @@ Repository = "https://github.com/Comfy-Org/comfyui-workflow-prettier"
 Issues = "https://github.com/Comfy-Org/comfyui-workflow-prettier/issues"
 
 [tool.comfy]
-PublisherId = "comfyorg"
+PublisherId = "deepme987"
 DisplayName = "Workflow Prettier"
 Icon = ""
