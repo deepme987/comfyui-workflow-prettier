@@ -1,4 +1,4 @@
-WEB_DIRECTORY = "./web/js"
+WEB_DIRECTORY = "./web"
 
 
 class WorkflowPrettifier:

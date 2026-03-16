@@ -64,12 +64,6 @@ function iterLinks(graph) {
   return Object.values(links).filter(Boolean);
 }
 
-/**
- * Build a directed acyclic graph from node connections.
- * @param {Object} graph - LiteGraph graph instance
- * @param {Array} [nodeSet] - Subset of nodes (defaults to all non-prettifier nodes)
- * @returns {{ adj: Map, revAdj: Map, nodeMap: Map }}
- */
 function buildDAG(graph, nodeSet) {
   const nodes = nodeSet ?? getWorkflowNodes(graph);
   const nodeMap = new Map();
@@ -96,7 +90,6 @@ function buildDAG(graph, nodeSet) {
   return { adj, revAdj, nodeMap };
 }
 
-/** Topological sort using Kahn's algorithm. Breaks ties by current Y then X position. */
 function topoSort(nodeMap, adj, revAdj) {
   const inDeg = new Map();
   for (const id of nodeMap.keys()) inDeg.set(id, revAdj.get(id)?.length ?? 0);
@@ -195,11 +188,6 @@ function minimizeCrossings(rawLayers, adj, revAdj, nodeMap) {
 //  COORDINATE ASSIGNMENT (Median alignment)
 // ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * Assign Y coordinates using anchor-based median alignment.
- * Finds the densest layer, stacks it compactly, then propagates positions
- * outward using median alignment of connected neighbors.
- */
 function assignCoordinates(layers, adj, revAdj, nodeMap, vSpacing) {
   const yPos = new Map();
   if (layers.length === 0) return yPos;
@@ -277,7 +265,6 @@ function alignLayer(layer, neighborAdj, refLayer, yPos, nodeMap, vSpacing) {
 
 // ─── Layered (Sugiyama) ──────────────────────────────────────────────────────
 
-/** DAG-based layered layout with crossing minimization (Sugiyama method). */
 function layoutLayered(graph, nodes, startX, startY, opts = {}) {
   if (nodes.length === 0) return { width: 0, height: 0 };
   if (nodes.length === 1) {
@@ -338,7 +325,6 @@ function layoutLinear(graph, nodes, startX, startY, opts = {}) {
 
 // ─── Compact (Rectangle packing) ────────────────────────────────────────────
 
-/** Shelf-based rectangle packing. Sorts by height, fills shelves to a target width. */
 function layoutCompact(graph, nodes, startX, startY, opts = {}) {
   if (nodes.length === 0) return { width: 0, height: 0 };
   const hSp = opts.horizontalSpacing ?? 100;
@@ -548,10 +534,6 @@ function resolveOverlaps(nodes, hSp, vSp) {
 //  GROUP DETECTION & GROUP-AWARE LAYOUT
 // ═════════════════════════════════════════════════════════════════════════════
 
-/**
- * Partition workflow nodes into groups using center-point containment.
- * For nested groups, the smallest enclosing group wins.
- */
 function partitionByGroup(graph) {
   const groups = graph._groups ?? [];
   const groupNodes = new Map();
@@ -605,10 +587,6 @@ function buildSuperDAG(graph, groupNodes, ungrouped) {
   return { sids, sAdj, sRev };
 }
 
-/**
- * Group-aware layout: lay out nodes within each group, then position groups
- * as virtual super-nodes using the same layout algorithm.
- */
 function layoutWithGroups(graph, layoutFn, opts = {}) {
   const pad = opts.groupPadding ?? 100;
   const titleH = 34;
