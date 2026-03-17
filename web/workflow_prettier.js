@@ -11,8 +11,12 @@
 
 import { app } from "../../scripts/app.js";
 
+// Set node position using the setter so Vue's reactivity proxy detects the change.
+function setPos(node, x, y) {
+  node.pos = [x, y];
+}
+
 // Force the canvas to repaint after layout changes.
-// Uses every known method to ensure both LiteGraph and the Vue frontend update.
 function refreshCanvas(graph) {
   graph?.setDirtyCanvas?.(true, true);
   app.canvas?.setDirty?.(true, true);
@@ -44,7 +48,7 @@ function popUndo(graph) {
   if (!state) return false;
   for (const node of graph._nodes) {
     const pos = state.nodes.get(node.id);
-    if (pos) { node.pos[0] = pos[0]; node.pos[1] = pos[1]; }
+    if (pos) setPos(node, pos[0], pos[1]);
   }
   const groups = graph._groups ?? [];
   for (let i = 0; i < groups.length && i < state.groups.length; i++) {
@@ -277,7 +281,7 @@ function alignLayer(layer, neighborAdj, refLayer, yPos, nodeMap, vSpacing) {
 function layoutLayered(graph, nodes, startX, startY, opts = {}) {
   if (nodes.length === 0) return { width: 0, height: 0 };
   if (nodes.length === 1) {
-    nodes[0].pos[0] = startX; nodes[0].pos[1] = startY;
+    setPos(nodes[0], startX, startY);
     return { width: nodes[0].size?.[0] ?? 200, height: nodes[0].size?.[1] ?? 100 };
   }
 
@@ -302,8 +306,7 @@ function layoutLayered(graph, nodes, startX, startY, opts = {}) {
     for (const id of layers[c]) {
       const node = nodeMap.get(id);
       if (!node) continue;
-      node.pos[0] = cx;
-      node.pos[1] = startY + (yPos.get(id) ?? 0);
+      setPos(node, cx, startY + (yPos.get(id) ?? 0));
       const bot = node.pos[1] + (node.size?.[1] ?? 100) - startY;
       if (bot > totalH) totalH = bot;
     }
@@ -324,7 +327,7 @@ function layoutLinear(graph, nodes, startX, startY, opts = {}) {
   for (const id of topo) {
     const node = nodeMap.get(id);
     if (!node) continue;
-    node.pos[0] = cx; node.pos[1] = startY;
+    setPos(node, cx, startY);
     cx += (node.size?.[0] ?? 200) + hSp;
     const h = node.size?.[1] ?? 100;
     if (h > maxH) maxH = h;
@@ -361,8 +364,7 @@ function layoutCompact(graph, nodes, startX, startY, opts = {}) {
       shelfHeight = 0;
     }
 
-    node.pos[0] = shelfX;
-    node.pos[1] = shelfY;
+    setPos(node, shelfX, shelfY);
     shelfX += w + hSp;
     if (h > shelfHeight) shelfHeight = h;
 
@@ -411,8 +413,7 @@ function layoutSortByType(graph, nodes, startX, startY, opts = {}) {
     let cy = startY;
     let colWidth = 0;
     for (const node of group) {
-      node.pos[0] = cx;
-      node.pos[1] = cy;
+      setPos(node, cx, cy);
       const w = node.size?.[0] ?? 200;
       const h = node.size?.[1] ?? 100;
       if (w > colWidth) colWidth = w;
@@ -445,8 +446,7 @@ function applyDirection(graph, nodes, direction, opts = {}) {
     for (const n of nodes) {
       const rx = n.pos[0] - minX;
       const ry = n.pos[1] - minY;
-      n.pos[0] = minX + ry;
-      n.pos[1] = minY + rx;
+      setPos(n, minX + ry, minY + rx);
     }
     // Also need to handle group bounding boxes
     for (const group of graph._groups ?? []) {
@@ -471,7 +471,7 @@ function applyDirection(graph, nodes, direction, opts = {}) {
       if (right > maxRight) maxRight = right;
     }
     for (const n of nodes) {
-      n.pos[0] = maxRight - n.pos[0] - (n.size?.[0] ?? 200);
+      setPos(n, maxRight - n.pos[0] - (n.size?.[0] ?? 200), n.pos[1]);
     }
     // Mirror group bounding boxes
     for (const group of graph._groups ?? []) {
@@ -513,7 +513,7 @@ function resolveOverlaps(nodes, hSp, vSp) {
     for (let i = 1; i < row.length; i++) {
       const prevRight = row[i - 1].pos[0] + (row[i - 1].size?.[0] ?? 200);
       if (row[i].pos[0] < prevRight + hSp) {
-        row[i].pos[0] = prevRight + hSp;
+        setPos(row[i], prevRight + hSp, row[i].pos[1]);
       }
     }
   }
@@ -534,7 +534,7 @@ function resolveOverlaps(nodes, hSp, vSp) {
     // Push down if overlapping
     if (curMinTop < prevMaxBot + vSp) {
       const shift = prevMaxBot + vSp - curMinTop;
-      for (const n of rows[r]) n.pos[1] += shift;
+      for (const n of rows[r]) setPos(n, n.pos[0], n.pos[1] + shift);
     }
   }
 }
@@ -657,7 +657,7 @@ function layoutWithGroups(graph, layoutFn, opts = {}) {
     const v = vMap.get(`g${gi}`);
     if (!v) continue;
     const ox = v.pos[0] + pad, oy = v.pos[1] + pad + titleH;
-    for (const n of nodes) { n.pos[0] += ox; n.pos[1] += oy; }
+    for (const n of nodes) setPos(n, n.pos[0] + ox, n.pos[1] + oy);
     const group = groups[gi];
     if (group) {
       const b = group._bounding ?? group.bounding;
@@ -667,7 +667,7 @@ function layoutWithGroups(graph, layoutFn, opts = {}) {
 
   for (const n of ungrouped) {
     const v = vMap.get(n.id);
-    if (v) { n.pos[0] = v.pos[0]; n.pos[1] = v.pos[1]; }
+    if (v) setPos(n, v.pos[0], v.pos[1]);
   }
 }
 
@@ -692,27 +692,27 @@ function alignNodes(graph, mode) {
   switch (mode) {
     case "left":
       { const minX = Math.min(...sel.map((n) => n.pos[0]));
-        for (const n of sel) n.pos[0] = minX; }
+        for (const n of sel) setPos(n, minX, n.pos[1]); }
       break;
     case "right":
       { const maxR = Math.max(...sel.map((n) => n.pos[0] + getW(n)));
-        for (const n of sel) n.pos[0] = maxR - getW(n); }
+        for (const n of sel) setPos(n, maxR - getW(n), n.pos[1]); }
       break;
     case "top":
       { const minY = Math.min(...sel.map((n) => n.pos[1]));
-        for (const n of sel) n.pos[1] = minY; }
+        for (const n of sel) setPos(n, n.pos[0], minY); }
       break;
     case "bottom":
       { const maxB = Math.max(...sel.map((n) => n.pos[1] + getH(n)));
-        for (const n of sel) n.pos[1] = maxB - getH(n); }
+        for (const n of sel) setPos(n, n.pos[0], maxB - getH(n)); }
       break;
     case "centerH":
       { const avgX = sel.reduce((s, n) => s + n.pos[0] + getW(n) / 2, 0) / sel.length;
-        for (const n of sel) n.pos[0] = avgX - getW(n) / 2; }
+        for (const n of sel) setPos(n, avgX - getW(n) / 2, n.pos[1]); }
       break;
     case "centerV":
       { const avgY = sel.reduce((s, n) => s + n.pos[1] + getH(n) / 2, 0) / sel.length;
-        for (const n of sel) n.pos[1] = avgY - getH(n) / 2; }
+        for (const n of sel) setPos(n, n.pos[0], avgY - getH(n) / 2); }
       break;
     case "distributeH":
       { if (sel.length < 3) break;
@@ -722,7 +722,7 @@ function alignNodes(graph, mode) {
         const totalNodeW = sorted.reduce((s, n) => s + getW(n), 0);
         const gap = (last - first - totalNodeW) / (sorted.length - 1);
         let x = first;
-        for (const n of sorted) { n.pos[0] = x; x += getW(n) + gap; } }
+        for (const n of sorted) { setPos(n, x, n.pos[1]); x += getW(n) + gap; } }
       break;
     case "distributeV":
       { if (sel.length < 3) break;
@@ -732,7 +732,7 @@ function alignNodes(graph, mode) {
         const totalNodeH = sorted.reduce((s, n) => s + getH(n), 0);
         const gap = (last - first - totalNodeH) / (sorted.length - 1);
         let y = first;
-        for (const n of sorted) { n.pos[1] = y; y += getH(n) + gap; } }
+        for (const n of sorted) { setPos(n, n.pos[0], y); y += getH(n) + gap; } }
       break;
   }
   refreshCanvas(graph);
@@ -774,7 +774,7 @@ function equalizeSpacing(graph, opts = {}) {
     if (col.length < 2) continue;
     let cy = col[0].pos[1];
     for (const n of col) {
-      n.pos[1] = cy;
+      setPos(n, n.pos[0], cy);
       cy += (n.size?.[1] ?? 100) + vSp;
     }
   }
@@ -784,7 +784,7 @@ function equalizeSpacing(graph, opts = {}) {
   for (const col of columns) {
     let colWidth = 0;
     for (const n of col) {
-      n.pos[0] = cx;
+      setPos(n, cx, n.pos[1]);
       const w = n.size?.[0] ?? 200;
       if (w > colWidth) colWidth = w;
     }
