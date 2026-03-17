@@ -11,7 +11,7 @@ class WorkflowPrettifier:
             "required": {
                 "layout": ([
                     "Layered (Vertical Stacks)",
-                    "Linear (Left to Right)",
+                    "Linear",
                     "Compact (Tight Rectangle)",
                     "Sort by Type",
                 ],),

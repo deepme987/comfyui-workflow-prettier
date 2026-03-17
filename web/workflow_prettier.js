@@ -11,7 +11,7 @@
 
 import { app } from "../../scripts/app.js";
 
-// Set node position using the setter so Vue's reactivity proxy detects the change.
+// Set node position via the pos setter so Vue's reactivity detects the change.
 function setPos(node, x, y) {
   node.pos = [x, y];
 }
@@ -800,7 +800,7 @@ function equalizeSpacing(graph, opts = {}) {
 
 const LAYOUT_FNS = {
   "Layered (Vertical Stacks)": layoutLayered,
-  "Linear (Left to Right)": layoutLinear,
+  "Linear": layoutLinear,
   "Compact (Tight Rectangle)": layoutCompact,
   "Sort by Type": layoutSortByType,
 };
@@ -848,7 +848,6 @@ app.registerExtension({
   name: "comfyui.workflow.prettier",
 
   init() {
-    console.log("[Prettifier] Extension init() called");
     // ── Canvas right-click: Prettify + quick layouts ──
     const origCanvas = LGraphCanvas.prototype.getCanvasMenuOptions;
     LGraphCanvas.prototype.getCanvasMenuOptions = function () {
@@ -858,15 +857,9 @@ app.registerExtension({
       const defaultOpts = { horizontalSpacing: 100, verticalSpacing: 100, groupPadding: 100 };
       const doLayout = (fn) => {
         const g = app.graph;
-        console.log("[Prettifier] app.graph:", g);
-        console.log("[Prettifier] _nodes:", g?._nodes?.length, "nodes:", g?.nodes?.length);
         if (!g?._nodes?.length && !g?.nodes?.length) return;
         pushUndo(g);
-        try {
-          fn(g);
-        } catch (e) {
-          console.error("[Prettifier] Layout error:", e);
-        }
+        fn(g);
         refreshCanvas(g);
       };
 
@@ -878,8 +871,8 @@ app.registerExtension({
           options: [
             { content: "Layered (Vertical Stacks)", callback: () =>
                 doLayout((g) => runPrettify(g, { ...defaultOpts, layout: "Layered (Vertical Stacks)", groupHandling: "Auto (Respect Groups)", direction: "Left to Right" })) },
-            { content: "Linear (Left to Right)", callback: () =>
-                doLayout((g) => runPrettify(g, { ...defaultOpts, layout: "Linear (Left to Right)", groupHandling: "Auto (Respect Groups)", direction: "Left to Right" })) },
+            { content: "Linear", callback: () =>
+                doLayout((g) => runPrettify(g, { ...defaultOpts, layout: "Linear", groupHandling: "Auto (Respect Groups)", direction: "Left to Right" })) },
             { content: "Compact (Tight Rectangle)", callback: () =>
                 doLayout((g) => runPrettify(g, { ...defaultOpts, layout: "Compact (Tight Rectangle)", groupHandling: "Auto (Respect Groups)", direction: "Left to Right" })) },
             { content: "Sort by Type", callback: () =>
@@ -893,6 +886,17 @@ app.registerExtension({
             null,
             { content: `Undo (${undoStack.length})`, callback: () => {
                 if (app.graph) popUndo(app.graph);
+            }},
+            null,
+            { content: "Add Prettifier Node", callback: () => {
+                const g = app.graph;
+                if (!g) return;
+                const node = LiteGraph.createNode("WorkflowPrettifier");
+                if (node) {
+                  node.pos = [100, 100];
+                  g.add(node);
+                  refreshCanvas(g);
+                }
             }},
           ],
         },
@@ -935,9 +939,7 @@ app.registerExtension({
   },
 
   nodeCreated(node) {
-    console.log("[Prettifier] nodeCreated called for:", node.comfyClass, node.type);
     if (node.comfyClass !== "WorkflowPrettifier") return;
-    console.log("[Prettifier] Setting up WorkflowPrettifier node");
 
     node.color = "#2a363b";
     node.bgcolor = "#1a252a";
@@ -947,18 +949,9 @@ app.registerExtension({
     prettifyBtn.serialize = false;
     prettifyBtn.callback = () => {
       const graph = app.graph;
-      console.log("[Prettifier] Button clicked. graph:", graph);
-      console.log("[Prettifier] _nodes:", graph?._nodes?.length, "nodes:", graph?.nodes?.length);
-      if (!graph?._nodes?.length && !graph?.nodes?.length) {
-        console.warn("[Prettifier] No nodes found, aborting");
-        return;
-      }
+      if (!graph?._nodes?.length && !graph?.nodes?.length) return;
       pushUndo(graph);
-      try {
-        runPrettify(graph, readNodeOpts(node));
-      } catch (e) {
-        console.error("[Prettifier] Error:", e);
-      }
+      runPrettify(graph, readNodeOpts(node));
       refreshCanvas(graph);
     };
 
@@ -985,7 +978,7 @@ app.registerExtension({
 
     const LAYOUT_HINTS = {
       "Layered (Vertical Stacks)": "DAG columns — nodes grouped by depth, stacked vertically. Best for standard workflows with branching pipelines.",
-      "Linear (Left to Right)": "Single row in topological execution order. Good for simple linear pipelines with few branches.",
+      "Linear": "Single row in topological execution order. Good for simple linear pipelines with few branches.",
       "Compact (Tight Rectangle)": "Packs nodes into the smallest rectangle possible. Ignores connections — pure space optimization.",
       "Sort by Type": "Groups identical node types into columns, ordered by pipeline depth. Great for spotting patterns and duplicates.",
     };

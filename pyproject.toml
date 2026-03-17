@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-workflow-prettier"
 description = "Auto-arrange workflow nodes with 4 layout algorithms, group-aware positioning, alignment tools, and undo"
-version = "1.0.4"
+version = "1.0.5"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
 
