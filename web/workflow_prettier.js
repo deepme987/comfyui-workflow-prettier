@@ -11,6 +11,15 @@
 
 import { app } from "../../scripts/app.js";
 
+// Force the canvas to repaint after layout changes.
+// Uses every known method to ensure both LiteGraph and the Vue frontend update.
+function refreshCanvas(graph) {
+  graph?.setDirtyCanvas?.(true, true);
+  app.canvas?.setDirty?.(true, true);
+  graph?.change?.();
+  app.canvas?.draw?.(true, true);
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  UNDO STACK (10 deep)
 // ═════════════════════════════════════════════════════════════════════════════
@@ -44,7 +53,7 @@ function popUndo(graph) {
     const b = groups[i]._bounding ?? groups[i].bounding;
     if (b) { b[0] = saved[0]; b[1] = saved[1]; b[2] = saved[2]; b[3] = saved[3]; }
   }
-  graph.setDirtyCanvas(true, true);
+  refreshCanvas(graph);
   return true;
 }
 
@@ -726,7 +735,7 @@ function alignNodes(graph, mode) {
         for (const n of sorted) { n.pos[1] = y; y += getH(n) + gap; } }
       break;
   }
-  graph.setDirtyCanvas(true, true);
+  refreshCanvas(graph);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -782,7 +791,7 @@ function equalizeSpacing(graph, opts = {}) {
     cx += colWidth + hSp;
   }
 
-  graph.setDirtyCanvas(true, true);
+  refreshCanvas(graph);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -839,6 +848,7 @@ app.registerExtension({
   name: "comfyui.workflow.prettier",
 
   init() {
+    console.log("[Prettifier] Extension init() called");
     // ── Canvas right-click: Prettify + quick layouts ──
     const origCanvas = LGraphCanvas.prototype.getCanvasMenuOptions;
     LGraphCanvas.prototype.getCanvasMenuOptions = function () {
@@ -848,10 +858,16 @@ app.registerExtension({
       const defaultOpts = { horizontalSpacing: 100, verticalSpacing: 100, groupPadding: 100 };
       const doLayout = (fn) => {
         const g = app.graph;
-        if (!g?._nodes?.length) return;
+        console.log("[Prettifier] app.graph:", g);
+        console.log("[Prettifier] _nodes:", g?._nodes?.length, "nodes:", g?.nodes?.length);
+        if (!g?._nodes?.length && !g?.nodes?.length) return;
         pushUndo(g);
-        fn(g);
-        g.setDirtyCanvas(true, true);
+        try {
+          fn(g);
+        } catch (e) {
+          console.error("[Prettifier] Layout error:", e);
+        }
+        refreshCanvas(g);
       };
 
       options.push({
@@ -919,35 +935,48 @@ app.registerExtension({
   },
 
   nodeCreated(node) {
+    console.log("[Prettifier] nodeCreated called for:", node.comfyClass, node.type);
     if (node.comfyClass !== "WorkflowPrettifier") return;
+    console.log("[Prettifier] Setting up WorkflowPrettifier node");
 
     node.color = "#2a363b";
     node.bgcolor = "#1a252a";
 
     // Prettify button
-    const prettifyBtn = node.addWidget("button", "Prettify!", null, () => {
-      const graph = app.graph;
-      if (!graph?._nodes?.length) return;
-      pushUndo(graph);
-      runPrettify(graph, readNodeOpts(node));
-      graph.setDirtyCanvas(true, true);
-    });
+    const prettifyBtn = node.addWidget("button", "Prettify!", "prettify");
     prettifyBtn.serialize = false;
+    prettifyBtn.callback = () => {
+      const graph = app.graph;
+      console.log("[Prettifier] Button clicked. graph:", graph);
+      console.log("[Prettifier] _nodes:", graph?._nodes?.length, "nodes:", graph?.nodes?.length);
+      if (!graph?._nodes?.length && !graph?.nodes?.length) {
+        console.warn("[Prettifier] No nodes found, aborting");
+        return;
+      }
+      pushUndo(graph);
+      try {
+        runPrettify(graph, readNodeOpts(node));
+      } catch (e) {
+        console.error("[Prettifier] Error:", e);
+      }
+      refreshCanvas(graph);
+    };
 
     // Equalize Spacing button
-    const eqBtn = node.addWidget("button", "Equalize Spacing", null, () => {
-      const graph = app.graph;
-      if (!graph?._nodes?.length) return;
-      const opts = readNodeOpts(node);
-      equalizeSpacing(graph, opts);
-    });
+    const eqBtn = node.addWidget("button", "Equalize Spacing", "equalize");
     eqBtn.serialize = false;
+    eqBtn.callback = () => {
+      const graph = app.graph;
+      if (!graph?._nodes?.length && !graph?.nodes?.length) return;
+      equalizeSpacing(graph, readNodeOpts(node));
+    };
 
     // Undo button
-    const undoBtn = node.addWidget("button", "Undo", null, () => {
-      if (app.graph) popUndo(app.graph);
-    });
+    const undoBtn = node.addWidget("button", "Undo", "undo");
     undoBtn.serialize = false;
+    undoBtn.callback = () => {
+      if (app.graph) popUndo(app.graph);
+    };
 
     node.size[0] = Math.max(node.size[0], 340);
 
@@ -991,19 +1020,19 @@ app.registerExtension({
     }
 
     // Toggle button
-    const toggleBtn = node.addWidget("button", "▸ Details", null, () => {
+    const toggleBtn = node.addWidget("button", "▸ Details", "details");
+    toggleBtn.serialize = false;
+    toggleBtn.callback = () => {
       detailsOpen = !detailsOpen;
       toggleBtn.name = detailsOpen ? "▾ Hide Details" : "▸ Details";
-      // Resize node to fit or shrink
       if (detailsOpen) {
         node._collapsedHeight = node.size[1];
         node.size[1] += detailsWidget._panelHeight || 120;
       } else {
         node.size[1] = node._collapsedHeight || node.size[1];
       }
-      node.setDirtyCanvas(true, true);
-    });
-    toggleBtn.serialize = false;
+      refreshCanvas(app.graph);
+    };
 
     // Custom draw widget that renders the description panel
     const detailsWidget = node.addCustomWidget({
